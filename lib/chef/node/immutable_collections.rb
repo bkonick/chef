@@ -47,6 +47,11 @@ class Chef
     #   Chef::Node::Attribute's values, it overrides all reader methods to
     #   detect staleness and raise an error if accessed when stale.
     class ImmutableArray < Array
+      alias_method :internal_clear, :clear
+      alias_method :internal_replace, :replace
+      alias_method :internal_push, :<<
+      private :internal_push, :internal_replace, :internal_clear
+
       include Immutablize
 
       methods = Array.instance_methods - Object.instance_methods +
@@ -54,12 +59,10 @@ class Chef
 
       methods.each do |method|
         define_method method do |*args, &block|
-          merged_lazy_array.public_send(method, *args, &block)
+          ensure_generated_cache!
+          super(*args, &block)
         end
       end
-
-      alias :internal_push :<<
-      private :internal_push
 
       def initialize(array_data = [])
         # Immutable collections no longer have initialized state
@@ -94,9 +97,14 @@ class Chef
 
       alias_method :to_array, :to_a
 
-      # FIXME: this absolutely needs caching
       def [](*args)
-        merged_lazy_array[*args]
+        ensure_generated_cache!
+        super
+      end
+
+      def reset
+        @generated_cache = false
+        internal_clear # redundant?
       end
 
       private
@@ -119,7 +127,8 @@ class Chef
         end # else nil
       end
 
-      def merged_lazy_array
+      def generate_cache
+        internal_clear
         components = []
         components << combined_components(Attribute::DEFAULT_COMPONENTS)
         components << get_array(:@normal)
@@ -127,8 +136,13 @@ class Chef
         components << get_array(:@automatic)
         highest = components.compact.last
         if highest.is_a?(Array)
-          highest.each_with_index.map { |x, i| convert_value(x, __path__ + [ i ] ) }
-        end # else nil
+          internal_replace( highest.each_with_index.map { |x, i| convert_value(x, __path__ + [ i ] ) } )
+        end
+      end
+
+      def ensure_generated_cache!
+        generate_cache unless @generated_cache
+        @generated_cache = true
       end
 
       # needed for __path__
@@ -153,6 +167,9 @@ class Chef
     #   it is stale.
     # * Values can be accessed in attr_reader-like fashion via method_missing.
     class ImmutableMash < Mash
+      alias_method :internal_clear, :clear
+      alias_method :internal_key?, :key? # FIXME: could bypass convert_key in Mash for perf
+
       include Immutablize
       include CommonAPI
 
@@ -161,7 +178,8 @@ class Chef
 
       methods.each do |method|
         define_method method do |*args, &block|
-          merged_lazy_hash.public_send(method, *args, &block)
+          ensure_generated_cache!
+          super(*args, &block)
         end
       end
 
@@ -221,35 +239,50 @@ class Chef
       end
 
       def [](key)
-        Attribute::COMPONENTS.reverse.each do |component|
-          value = __node__.attributes.instance_variable_get(component).read(*__path__, key)
-          unless value.nil?
-            return convert_value(value, __path__ + [ key ])
-          end
-        end
-        nil
+        ensure_generated_cache!
+        super
+#        unless @merged_lazy_hash.nil?
+#          @merged_lazy_hash[key]
+#        else
+#          Attribute::COMPONENTS.reverse.each do |component|
+#            value = __node__.attributes.instance_variable_get(component).read(*__path__, key)
+#            unless value.nil?
+#              return convert_value(value, __path__ + [ key ])
+#            end
+#          end
+#          nil
+#        end
       end
 
       alias_method :to_hash, :to_h
 
+      def reset
+        @generated_cache = false
+        internal_clear # redundant?
+      end
+
       private
 
-      def merged_lazy_hash
-        hash = {}
+      def generate_cache
+        internal_clear
         Attribute::COMPONENTS.reverse.each do |component|
           subhash = __node__.attributes.instance_variable_get(component).read(*__path__)
           unless subhash.nil? # FIXME: nil is used for not present
             if subhash.kind_of?(Hash)
               subhash.keys.each do |key|
-                next if hash.key?(key)
-                hash[key] = convert_value(subhash[key], __path__ + [ key ])
+                next if internal_key?(key)
+                internal_set(key, subhash[key])
               end
             else
-              return hash
+              break
             end
           end
         end
-        hash
+      end
+
+      def ensure_generated_cache!
+        generate_cache unless @generated_cache
+        @generated_cache = true
       end
 
       prepend Chef::Node::Mixin::StateTracking

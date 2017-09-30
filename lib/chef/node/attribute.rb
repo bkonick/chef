@@ -235,9 +235,19 @@ class Chef
       end
 
       def reset
+        @deep_merge_cache = ImmutableMash.new({}, self, @__node__, :merged)
       end
 
-      def reset_cache(arg = nil)
+      def reset_cache(*path)
+        if path.empty?
+          reset
+        else
+          container = read(*path)
+          case container
+          when Hash, Array
+            container.reset
+          end
+        end
       end
 
        # Set the cookbook level default attribute component to +new_data+.
