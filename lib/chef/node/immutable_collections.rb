@@ -66,6 +66,11 @@ class Chef
         end
       end
 
+      def uniq
+        ensure_generated_cache!
+        super.internal_to_a
+      end
+
       def initialize(array_data = [])
         # Immutable collections no longer have initialized state
       end

@@ -220,4 +220,11 @@ describe Chef::Node::ImmutableArray do
       expect(@immutable_array[1, 2]).to eql(%w{bar baz})
     end
   end
+
+  describe "uniq" do
+    it "works" do
+      @node.attributes.default = { "key" => %w{foo bar foo baz bar} }
+      expect(@node["key"].uniq).to eql(%w{foo bar baz})
+    end
+  end
 end
