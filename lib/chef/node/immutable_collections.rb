@@ -50,7 +50,9 @@ class Chef
       alias_method :internal_clear, :clear
       alias_method :internal_replace, :replace
       alias_method :internal_push, :<<
+      alias_method :internal_to_a, :to_a
       private :internal_push, :internal_replace, :internal_clear
+      protected :internal_to_a
 
       include Immutablize
 
@@ -99,7 +101,7 @@ class Chef
 
       def [](*args)
         ensure_generated_cache!
-        super
+        args.length > 1 ? super.internal_to_a : super # correctly handle array slices
       end
 
       def reset
