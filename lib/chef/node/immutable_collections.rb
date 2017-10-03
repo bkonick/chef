@@ -66,9 +66,19 @@ class Chef
         end
       end
 
+      # because sometimes ruby gives us back Arrays or ImmutableArrays out of objects from things like #uniq or array slices
+      def return_normal_array(array)
+        if array.respond_to?(:internal_to_a, true)
+          array.internal_to_a
+        else
+          puts array.class
+          array.to_a
+        end
+      end
+
       def uniq
         ensure_generated_cache!
-        super.internal_to_a
+        return_normal_array(super)
       end
 
       def initialize(array_data = [])
@@ -106,7 +116,7 @@ class Chef
 
       def [](*args)
         ensure_generated_cache!
-        args.length > 1 ? super.internal_to_a : super # correctly handle array slices
+        args.length > 1 ? return_normal_array(super) : super # correctly handle array slices
       end
 
       def reset
