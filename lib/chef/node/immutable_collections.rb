@@ -132,6 +132,12 @@ class Chef
         internal_clear # redundant?
       end
 
+      # @api private
+      def ensure_generated_cache!
+        generate_cache unless @generated_cache
+        @generated_cache = true
+      end
+
       private
 
       def combined_components(components)
@@ -168,13 +174,6 @@ class Chef
       # needed for __path__
       def convert_key(key)
         key
-      end
-
-      protected
-
-      def ensure_generated_cache!
-        generate_cache unless @generated_cache
-        @generated_cache = true
       end
 
       prepend Chef::Node::Mixin::StateTracking
@@ -288,6 +287,12 @@ class Chef
         internal_clear # redundant?
       end
 
+      # @api private
+      def ensure_generated_cache!
+        generate_cache unless @generated_cache
+        @generated_cache = true
+      end
+
       private
 
       def generate_cache
@@ -305,11 +310,6 @@ class Chef
             end
           end
         end
-      end
-
-      def ensure_generated_cache!
-        generate_cache unless @generated_cache
-        @generated_cache = true
       end
 
       prepend Chef::Node::Mixin::StateTracking
