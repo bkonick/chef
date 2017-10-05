@@ -70,7 +70,7 @@ class Chef
       def each
         ensure_generated_cache!
         # aggressively pre generate the cache, works around ruby being too smart and fiddling with internals
-        internal_each { |i| i.ensure_generated_cache! }
+        internal_each { |i| i.ensure_generated_cache! if i.respond_to?(:ensure_generated_cache!) }
         super
       end
 
