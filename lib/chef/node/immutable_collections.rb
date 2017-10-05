@@ -51,7 +51,8 @@ class Chef
       alias_method :internal_replace, :replace
       alias_method :internal_push, :<<
       alias_method :internal_to_a, :to_a
-      private :internal_push, :internal_replace, :internal_clear
+      alias_method :internal_each, :each
+      private :internal_push, :internal_replace, :internal_clear, :internal_each
       protected :internal_to_a
 
       include Immutablize
@@ -64,6 +65,13 @@ class Chef
           ensure_generated_cache!
           super(*args, &block)
         end
+      end
+
+      def each
+        ensure_generated_cache!
+        # aggressively pre generate the cache, works around ruby being too smart and fiddling with internals
+        internal_each { |i| i.ensure_generated_cache! }
+        super
       end
 
       # because sometimes ruby gives us back Arrays or ImmutableArrays out of objects from things like #uniq or array slices
@@ -157,14 +165,16 @@ class Chef
         end
       end
 
-      def ensure_generated_cache!
-        generate_cache unless @generated_cache
-        @generated_cache = true
-      end
-
       # needed for __path__
       def convert_key(key)
         key
+      end
+
+      protected
+
+      def ensure_generated_cache!
+        generate_cache unless @generated_cache
+        @generated_cache = true
       end
 
       prepend Chef::Node::Mixin::StateTracking
